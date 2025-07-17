@@ -1,0 +1,130 @@
+
+
+一、下载地址
+nginx:下载地址：
+https://github.com/nginx/nginx
+
+nginx-upload-module:下载地址：
+https://github.com/hongzhidao/nginx-upload-module
+
+二、编译方法：
+
+tar xf nginx-1.24.0.tar.gz
+cd nginx-1.24.0
+./auto/configure --prefix=/usr/local/nginx \
+            --add-module=../nginx-upload-module
+make && make install
+
+
+三、配置方法nginx.conf
+3.1 配置方法
+http {
+    # 上传大小限制
+    client_max_body_size 100m;
+
+    server {
+        listen 80;
+        server_name upload.example.com;
+
+        # 上传入口
+        location /upload {
+            # 1. 文件先落地
+            upload_pass          @after_upload;     # 接收完后跳转
+            upload_store         /tmp/nginx_upload 1;
+            upload_store_access  user:rw group:rw all:rw;
+
+            # 2. 把文件信息重新注入表单
+            upload_set_form_field file[name] "$upload_file_name";
+            upload_set_form_field file[path] "$upload_tmp_path";
+            upload_set_form_field file[type] "$upload_content_type";
+            upload_aggregate_form_field file[size] "$upload_file_size";
+            upload_aggregate_form_field file[md5]  "$upload_file_md5";
+
+            # 3. 原表单其它字段也透传
+            upload_pass_form_field "^.*$";
+
+            # 4. 出错自动清理
+            upload_cleanup 400 404 499 500-505;
+        }
+
+        # 真正干活的后端（这里以 PHP-FPM 为例）
+        location @after_upload {
+            proxy_pass http://127.0.0.1:9000;   # 或 fastcgi_pass
+        }
+
+        # 可选：下载/浏览已传文件
+        location /files {
+            alias /var/www/files/;
+            autoindex on;
+        }
+    }
+}
+
+
+3.2、返回给后端数据格式：
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG
+Content-Disposition: form-data; name="file[name]"
+
+net_gate_20250630.tar.gz
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG
+Content-Disposition: form-data; name="file[path]"
+
+/tmp/nginx_upload/3/0000000003
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG
+Content-Disposition: form-data; name="file[type]"
+
+application/x-gzip
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG
+Content-Disposition: form-data; name="file[size]"
+
+137280820
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG
+Content-Disposition: form-data; name="file[md5]"
+
+094d76b06435d25f1c1a8cd14c9ee08a
+------WebKitFormBoundaryEO4PZ2bYtLrDP5jG--
+
+3.3 C++解析数据方法
+# ######################################################################
+
+
+std::map<std::string, std::string> HttpForManager::parse_multipart_form_data(const std::string& body) {
+    std::map<std::string, std::string> form_data;
+
+    // 使用正则提取每个字段（[\s\S]*? 兼容换行内容）
+    std::regex part_re("Content-Disposition: form-data; name=\"([^\"]+)\"\\s*\\r\\n\\r\\n([\\s\\S]*?)\\r\\n");
+    std::smatch match;
+
+    auto begin = body.cbegin();
+    auto end = body.cend();
+
+    while (std::regex_search(begin, end, match, part_re)) {
+        std::string key = match[1].str();
+        std::string value = match[2].str();
+
+        form_data[key] = value;
+
+        begin = match.suffix().first;
+    }
+
+    return form_data;
+}
+
+void  HttpForManager::upload_server(SpSession &session_ptr, HttpRequest &req, HttpResponse &rsp)
+{
+    std::string body = req.body();
+   auto form = parse_multipart_form_data(body);
+    // LOG_DEBUG("body: {}",body);
+       // 打印提取结果
+    for (const auto& [key, value] : form) {
+        // std::cout << key << " : " << value << "\n";
+        LOG_DEBUG("key: {}, value: {}", key, value);
+    }
+    // 构造应答包
+    rsp.result(http::status::ok);
+    std::string result = "{" HTTP_MSG_SUCCESS "}";
+    rsp.fill_json(result);
+    LOG_DEBUG("rsp: {}",result);
+
+}
+# ##########################################################################
