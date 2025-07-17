@@ -1,0 +1,13 @@
+
+仓库地址：https://github.com/zhllxt/asio2.git
+
+
+    header only,不依赖boost库,不需要单独编译,在工程的Include目录中添加asio2路径,在源码中#include <asio2/asio2.hpp>即可使用;
+    支持tcp, udp, http, websocket, rpc, ssl, icmp, serial_port;
+    支持可靠UDP(基于KCP),支持SSL;
+    TCP支持各种数据拆包功能(单个字符或字符串或用户自定义协议等);
+    跨平台,支持windows,linux,macos,arm,android,32位,64位等;在msvc gcc clang ndk mingw下编译通过;
+    基于C++17,基于asio (standalone asio或boost::asio均可);
+    example目录包含大量示例代码,各种使用方法请参考示例代码;
+
+
