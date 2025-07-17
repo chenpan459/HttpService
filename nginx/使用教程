@@ -128,3 +128,72 @@ void  HttpForManager::upload_server(SpSession &session_ptr, HttpRequest &req, Ht
 
 }
 # ##########################################################################
+
+3.5 C语言的解析方法：
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+#define MAX_PARTS 20
+#define MAX_FIELD_NAME 128
+#define MAX_FIELD_VALUE 1024
+
+typedef struct {
+    char name[MAX_FIELD_NAME];
+    char value[MAX_FIELD_VALUE];
+} FormField;
+
+int parse_multipart_form_data(const char *body, const char *boundary, FormField *fields, int max_fields) {
+    int field_count = 0;
+
+    // 构造 boundary 分隔符
+    char delimiter[256];
+    snprintf(delimiter, sizeof(delimiter), "--%s", boundary);
+
+    const char *p = body;
+
+    while ((p = strstr(p, delimiter)) != NULL) {
+        p += strlen(delimiter);
+
+        // 查找头部 Content-Disposition
+        const char *cd_start = strstr(p, "Content-Disposition:");
+        if (!cd_start) break;
+
+        const char *name_start = strstr(cd_start, "name=\"");
+        if (!name_start) break;
+        name_start += 6;
+
+        const char *name_end = strchr(name_start, '"');
+        if (!name_end) break;
+
+        int name_len = name_end - name_start;
+        if (name_len >= MAX_FIELD_NAME) name_len = MAX_FIELD_NAME - 1;
+
+        // 保存字段名
+        strncpy(fields[field_count].name, name_start, name_len);
+        fields[field_count].name[name_len] = '\0';
+
+        // 跳过两个换行寻找值起始
+        const char *value_start = strstr(name_end, "\r\n\r\n");
+        if (!value_start) break;
+        value_start += 4;
+
+        // 查找字段结束位置（下一个 boundary 前的 \r\n）
+        const char *value_end = strstr(value_start, "\r\n");
+        if (!value_end) break;
+
+        int value_len = value_end - value_start;
+        if (value_len >= MAX_FIELD_VALUE) value_len = MAX_FIELD_VALUE - 1;
+
+        strncpy(fields[field_count].value, value_start, value_len);
+        fields[field_count].value[value_len] = '\0';
+
+        field_count++;
+        if (field_count >= max_fields) break;
+
+        p = value_end;
+    }
+
+    return field_count;
+}
+# ######################################################################
