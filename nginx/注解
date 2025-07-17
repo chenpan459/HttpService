@@ -11,7 +11,7 @@ https://github.com/hongzhidao/nginx-upload-module
 
 tar xf nginx-1.24.0.tar.gz
 cd nginx-1.24.0
-./auto/configure --prefix=/usr/local \
+./auto/configure --prefix=/usr/local/nginx \
             --add-module=../nginx-upload-module
 make && make install
 
