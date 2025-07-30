@@ -12,7 +12,10 @@ https://github.com/hongzhidao/nginx-upload-module
 tar xf nginx-1.24.0.tar.gz
 cd nginx-1.24.0
 ./auto/configure --prefix=/usr/local/nginx \
-            --add-module=../nginx-upload-module
+            --add-module=../nginx-upload-module \
+            --with-http_stub_status_module \
+            --with-http_ssl_module \
+            --with-http_proxy_module
 make && make install
 
 
