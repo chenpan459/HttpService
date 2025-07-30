@@ -1,0 +1,114 @@
+
+src\core\ngx_conf_file.h
+src\core\ngx_conf_file.c
+
+
+1、文件解析
+char *ngx_conf_parse(ngx_conf_t *cf, ngx_str_t *filename)
+{
+.................
+
+.................
+    if (filename) {
+
+        /* open configuration file */
+打开文件
+        fd = ngx_open_file(filename->data, NGX_FILE_RDONLY, NGX_FILE_OPEN, 0);
+
+        if (fd == NGX_INVALID_FILE) {
+            ngx_conf_log_error(NGX_LOG_EMERG, cf, ngx_errno,
+                               ngx_open_file_n " \"%s\" failed",
+                               filename->data);
+            return NGX_CONF_ERROR;
+        }
+
+.....................
+
+    for ( ;; ) {
+        读取一段配置文件内容然后调用对应模块进行设置
+        rc = ngx_conf_read_token(cf);
+     
+        /*
+         * ngx_conf_read_token() may return
+         *
+         *    NGX_ERROR             there is error
+         *    NGX_OK                the token terminated by ";" was found
+         *    NGX_CONF_BLOCK_START  the token terminated by "{" was found
+         *    NGX_CONF_BLOCK_DONE   the "}" was found
+         *    NGX_CONF_FILE_DONE    the configuration file is done
+         */
+
+  
+         rv = (*cf->handler)(cf, NULL, cf->handler_conf);         
+
+        rc = ngx_conf_handler(cf, rc);
+
+        if (rc == NGX_ERROR) {
+            goto failed;
+        }
+    }
+
+
+    return NGX_CONF_OK;
+}
+
+
+
+2、ngx_conf_read_token 返回值的详细解释：
+
+返回值含义
+NGX_ERROR:
+
+含义: 表示解析过程中发生了错误。
+场景:
+配置文件读取失败。
+配置文件格式错误（如缺少分号 ; 或大括号 {}）。
+内存分配失败。
+处理:
+解析函数会记录错误日志。
+终止配置文件的解析过程。
+NGX_OK:
+
+含义: 表示成功读取并解析了一个完整的指令及其参数，指令以分号 ; 结尾。
+场景:
+读取到一个完整的指令，例如 listen 80;。
+处理:
+解析函数会将指令及其参数存储在 cf->args 中。
+继续解析下一个指令。
+NGX_CONF_BLOCK_START:
+
+含义: 表示成功读取并解析了一个指令块的开始，指令以大括号 { 结尾。
+场景:
+读取到一个指令块的开始，例如 server {。
+处理:
+解析函数会将指令及其参数存储在 cf->args 中。
+进入子块解析模式，继续解析子块中的指令。
+NGX_CONF_BLOCK_DONE:
+
+含义: 表示成功读取并解析了一个指令块的结束，遇到大括号 }。
+场景:
+读取到一个指令块的结束，例如 }。
+处理:
+解析函数会退出当前子块的解析模式。
+继续解析父块中的下一个指令。
+NGX_CONF_FILE_DONE:
+
+含义: 表示配置文件解析完成，没有更多内容可读。
+场景:
+读取到配置文件的末尾，没有更多指令或子块。
+处理:
+解析函数会终止解析过程。
+返回 NGX_CONF_OK 表示配置文件解析成功。
+
+
+3、调用对应的模块进行设置
+static ngx_int_t ngx_conf_handler(ngx_conf_t *cf, ngx_int_t last)
+{
+    name = cf->args->elts;
+    found = 0;
+    for (i = 0; cf->cycle->modules[i]; i++) {
+        cmd = cf->cycle->modules[i]->commands;            
+        }
+    }
+    return NGX_ERROR;
+}

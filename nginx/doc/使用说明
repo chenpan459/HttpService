@@ -1,0 +1,52 @@
+技术文章地址：
+Nginx 源码：https://www.kancloud.cn/digest/understandingnginx/202599
+社区：https://www.nginx.org.cn/
+
+
+
+Nginx 作为一个高性能的 HTTP 服务器和反向代理服务器，可以处理大文件上传并将其转发到后端服务器。处理大文件上传时，
+Nginx 会将文件存储在临时目录中，然后再将其转发到后端服务器。
+
+Nginx 处理大文件上传的流程
+接收文件上传：
+Nginx 接收到客户端上传的文件请求。
+文件数据会被写入到 Nginx 的临时目录中。
+
+转发请求到后端服务器：
+Nginx 将请求（包括上传的文件）转发到后端服务器（如应用服务器）。
+后端服务器处理上传的文件。
+
+
+
+配置 Nginx 处理大文件上传
+以下是一些关键配置项，用于处理大文件上传并转发到后端服务器：
+
+设置 client_max_body_size：
+设置允许的最大请求体大小，以避免 413 Request Entity Too Large 错误。
+http {
+    client_max_body_size 100M;  # 设置为 100M 或其他合适的大小
+    ...
+}
+
+配置临时文件存储位置：
+配置上传文件的临时存储位置。
+http {
+    client_body_temp_path /var/nginx/client_body_temp;
+    ...
+}
+
+配置反向代理：
+配置 Nginx 将请求转发到后端服务器。
+server {
+    listen 80;
+    server_name example.com;
+
+    location /upload {
+        proxy_pass http://backend_server;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+

@@ -1,0 +1,46 @@
+
+
+typedef struct {
+    u_char      *addr; /* 指向共享内存的地址指针 */
+    size_t       size; /* 共享内存的大小 */
+    ngx_str_t    name; /* 共享内存的名称，使用ngx_str_t结构体表示 */
+    ngx_log_t   *log; /* 指向日志结构的指针，用于记录日志 */
+    ngx_uint_t   exists;   /* unsigned  exists:1;  */
+} ngx_shm_t;
+
+
+ngx_int_t ngx_shm_alloc(ngx_shm_t *shm);     // 定义一个函数 ngx_shm_alloc，用于分配共享内存// 参数 shm 是一个指向 ngx_shm_t 类型的指针，表示共享内存的结构体// 返回值是 ngx_int_t 类型，通常用于表示操作的成功与否
+void ngx_shm_free(ngx_shm_t *shm); // 定义一个函数 ngx_shm_free，用于释放共享内存// 参数 shm 是一个指向 ngx_shm_t 类型的指针，表示共享内存的结构体// 该函数没有返回值，通常用于清理和释放资源
+
+
+
+
+ngx_int_t ngx_shm_alloc(ngx_shm_t *shm)
+{
+    shm->addr = (u_char *) mmap(NULL, shm->size,
+                                PROT_READ|PROT_WRITE, // 设置内存保护权限为可读可写
+                                MAP_ANON|MAP_SHARED, -1, 0); // 使用匿名映射和共享映射，文件描述符为-1，偏移量为0
+
+    if (shm->addr == MAP_FAILED) { // 检查映射是否失败
+        ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno, // 记录错误日志
+                      "mmap(MAP_ANON|MAP_SHARED, %uz) failed", shm->size); // 错误信息，包括映射大小
+        return NGX_ERROR; // 返回错误码
+    }
+
+    return NGX_OK; // 返回成功码
+}
+
+
+void ngx_shm_free(ngx_shm_t *shm)
+{
+    if (munmap((void *) shm->addr, shm->size) == -1) { // 尝试使用munmap函数释放共享内存    // 参数1: 共享内存的起始地址    // 参数2: 共享内存的大小
+        ngx_log_error(NGX_LOG_ALERT, shm->log, ngx_errno,
+                      "munmap(%p, %uz) failed", shm->addr, shm->size);
+    }
+}
+
+
+
+
+
+
