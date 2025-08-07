@@ -1,0 +1,285 @@
+# multi_protocol_proxy.yaml
+# 多协议代理配置文件，一个Envoy进程同时处理多种网络协议
+
+# 管理接口配置
+admin:
+  # 管理接口访问日志路径
+  access_log_path: /tmp/admin_access.log
+  # 管理接口监听地址和端口（9901）
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }
+
+# 静态资源配置
+static_resources:
+  # 监听器配置列表
+  listeners:
+  # TCP代理监听器
+  - name: tcp_listener
+    # 监听地址：所有接口的10000端口
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 10000 }
+    # 过滤器链配置
+    filter_chains:
+    - filters:
+      # 使用TCP代理过滤器
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          # 统计信息前缀
+          stat_prefix: tcp_proxy
+          # 转发到的目标集群
+          cluster: tcp_cluster
+
+  # UDP代理监听器
+  - name: udp_listener
+    # 监听地址：所有接口的10001端口（UDP协议）
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 10001, protocol: UDP }
+    # UDP监听器特定配置
+    udp_listener_config:
+      # 下行链路套接字配置
+      downstream_socket_config:
+        # 最大接收数据报大小设为9000字节
+        max_rx_datagram_size: 9000
+    # 监听器过滤器
+    listener_filters:
+    # 使用UDP代理过滤器
+    - name: envoy.filters.udp_listener.udp_proxy
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+        # 统计信息前缀
+        stat_prefix: udp_proxy
+        # 转发到的目标集群
+        cluster: udp_cluster
+
+  # FTP控制连接监听器 (端口21)
+  - name: ftp_control_listener
+    # 监听FTP控制端口21
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 21 }
+    # 过滤器链配置
+    filter_chains:
+    - filters:
+      # 使用TCP代理处理FTP控制连接
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          # 统计信息前缀
+          stat_prefix: ftp_control
+          # 转发到FTP控制集群
+          cluster: ftp_control_cluster
+          
+  # FTP数据连接监听器 (端口20)
+  - name: ftp_data_listener
+    # 监听FTP数据端口20
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 20 }
+    # 过滤器链配置
+    filter_chains:
+    - filters:
+      # 使用TCP代理处理FTP数据连接
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          # 统计信息前缀
+          stat_prefix: ftp_data
+          # 转发到FTP数据集群
+          cluster: ftp_data_cluster
+
+  # H.323信令端口监听器 (1720)
+  - name: h323_signaling_listener
+    # 监听H.323信令端口1720
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 1720 }
+    # 过滤器链配置
+    filter_chains:
+    - filters:
+      # 使用TCP代理处理H.323信令
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          # 统计信息前缀
+          stat_prefix: h323_signaling
+          # 转发到H.323信令集群
+          cluster: h323_signaling_cluster
+
+  # TFTP代理监听器
+  - name: tftp_listener
+    # 监听TFTP端口69（UDP协议）
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 69, protocol: UDP }
+    # UDP监听器特定配置
+    udp_listener_config:
+      # 下行链路套接字配置
+      downstream_socket_config:
+        # TFTP标准数据报大小为512字节
+        max_rx_datagram_size: 512
+    # 监听器过滤器
+    listener_filters:
+    # 使用UDP代理过滤器
+    - name: envoy.filters.udp_listener.udp_proxy
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+        # 统计信息前缀
+        stat_prefix: tftp_proxy
+        # 转发到TFTP集群
+        cluster: tftp_cluster
+
+  # HTTP/3代理监听器
+  - name: http3_listener
+    # 监听HTTPS标准端口443
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 443
+    # 监听器过滤器
+    listener_filters:
+    # TLS检查器，用于识别HTTP/3流量
+    - name: envoy.filters.listener.tls_inspector
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.filters.listener.tls_inspector.v3.TlsInspector
+    # 过滤器链配置
+    filter_chains:
+    # 匹配HTTP/3应用协议
+    - filter_chain_match:
+        application_protocols: ["h3"]
+      # QUIC传输套接字配置
+      transport_socket:
+        name: envoy.transport_sockets.quic
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicDownstreamTransport
+          downstream_tls_context:
+            common_tls_context:
+              tls_certificates:
+              - certificate_chain: { filename: "/home/kylin/envoy/key_envoy/envoy.crt" }
+                private_key: { filename: "/home/kylin/envoy/key_envoy/envoy.key" }
+      # 网络过滤器
+      filters:
+      # HTTP连接管理器
+      - name: envoy.filters.network.http_connection_manager
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+          stat_prefix: h3_proxy
+          codec_type: HTTP3
+          http3_protocol_options:
+            allow_extended_connect: true
+          route_config:
+            name: local_route
+            virtual_hosts:
+            - name: backend
+              domains: ["*"]
+              routes:
+              - match: { prefix: "/" }
+                route: { cluster: http3_cluster }
+          http_filters:
+          - name: envoy.filters.http.router
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+
+  # 集群配置列表
+  clusters:
+  # TCP代理集群
+  - name: tcp_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: tcp_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.100, port_value: 8080 }
+
+  # UDP代理集群
+  - name: udp_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: MAGLEV
+    load_assignment:
+      cluster_name: udp_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.101, port_value: 53, protocol: UDP }
+
+  # FTP控制连接集群
+  - name: ftp_control_cluster
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: ftp_control_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.102, port_value: 21 }
+
+  # FTP数据连接集群
+  - name: ftp_data_cluster
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: ftp_data_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.102, port_value: 20 }
+
+  # H.323信令集群
+  - name: h323_signaling_cluster
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: h323_signaling_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.103, port_value: 1720 }
+
+  # TFTP集群
+  - name: tftp_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: MAGLEV
+    load_assignment:
+      cluster_name: tftp_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.104, port_value: 69, protocol: UDP }
+
+  # HTTP/3集群
+  - name: http3_cluster
+    connect_timeout: 0.25s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    typed_extension_protocol_options:
+      envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+        "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+        explicit_http_config:
+          http3_protocol_options: {}
+    transport_socket:
+      name: envoy.transport_sockets.quic
+      typed_config:
+        "@type": type.googleapis.com/envoy.extensions.transport_sockets.quic.v3.QuicUpstreamTransport
+        upstream_tls_context:
+          sni: "example.com"
+          common_tls_context:
+            validation_context:
+              trusted_ca:
+                filename: "/home/kylin/envoy/key_envoy/envoy.crt"
+    load_assignment:
+      cluster_name: http3_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.105, port_value: 443 }

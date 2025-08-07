@@ -1,0 +1,56 @@
+# ftp_proxy.yaml
+admin:
+  access_log_path: /tmp/admin_access.log
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }
+
+static_resources:
+  listeners:
+  # FTP控制连接 (端口21)
+  - name: ftp_control_listener
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 21 }
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          stat_prefix: ftp_control
+          cluster: ftp_control_cluster
+          
+  # FTP数据连接 (端口20)
+  - name: ftp_data_listener
+    address:
+      socket_address: { address: 0.0.0.0, port_value: 20 }
+    filter_chains:
+    - filters:
+      - name: envoy.filters.network.tcp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+          stat_prefix: ftp_data
+          cluster: ftp_data_cluster
+
+  clusters:
+  - name: ftp_control_cluster
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: ftp_control_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.102, port_value: 21 }
+
+  - name: ftp_data_cluster
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: ftp_data_cluster
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address: { address: 192.168.1.102, port_value: 20 }

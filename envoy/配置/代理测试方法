@@ -1,0 +1,183 @@
+要验证Envoy代理是否生效，您可以使用以下多种方法来测试各个协议的代理功能：
+
+## 1. 管理接口验证
+
+首先通过管理接口检查Envoy是否正常运行：
+
+```bash
+# 检查Envoy是否启动并监听管理端口
+curl http://localhost:9901/server_info
+
+# 查看所有监听器状态
+curl http://localhost:9901/listeners
+
+# 查看集群状态
+curl http://localhost:9901/clusters
+
+# 查看统计信息
+curl http://localhost:9901/stats
+```
+
+## 2. TCP代理验证 (端口10000)
+
+```bash
+# 使用telnet测试TCP代理
+telnet localhost 10000
+
+# 使用nc命令测试
+nc -v localhost 10000
+
+# 发送测试数据
+echo "Hello TCP Proxy" | nc localhost 10000
+```
+
+## 3. UDP代理验证 (端口10001)
+
+```bash
+# 使用nc测试UDP代理
+echo "Hello UDP Proxy" | nc -u localhost 10001
+
+# 使用socat测试
+echo "Test UDP" | socat - UDP:localhost:10001
+```
+
+## 4. FTP代理验证 (端口21/20)
+
+```bash
+# 使用ftp命令行客户端测试
+ftp localhost
+
+# 或使用lftp客户端
+lftp localhost
+
+# 测试FTP控制连接
+telnet localhost 21
+```
+
+## 5. H.323代理验证 (端口1720)
+
+```bash
+# 使用telnet测试H.323信令端口
+telnet localhost 1720
+
+# 或使用nc测试
+nc -v localhost 1720
+```
+
+## 6. TFTP代理验证 (端口69)
+
+```bash
+# 使用tftp客户端测试
+tftp localhost
+
+# 或使用nc测试UDP连接
+echo "test" | nc -u localhost 69
+```
+
+## 7. 使用网络工具验证
+
+### netstat/ss检查端口监听
+```bash
+# 检查Envoy监听的所有端口
+netstat -tlnp | grep envoy
+# 或者
+ss -tlnp | grep envoy
+```
+
+### tcpdump抓包分析
+```bash
+# 抓取TCP代理流量
+sudo tcpdump -i any -n port 10000
+
+# 抓取FTP控制连接流量
+sudo tcpdump -i any -n port 21
+
+# 抓取TFTP流量
+sudo tcpdump -i any -n port 69
+```
+
+## 8. 日志验证
+
+检查Envoy日志输出：
+
+```bash
+# 启动Envoy时指定详细日志
+./bazel-bin/source/exe/envoy-static -c multi_protocol_proxy_tcp_udp_ftp_tftp.yaml --log-level debug
+
+# 或检查日志文件（如果配置了日志路径）
+tail -f /tmp/admin_access.log
+```
+
+## 9. 使用测试脚本
+
+创建一个简单的测试脚本：
+
+```bash
+#!/bin/bash
+# test_envoy_proxy.sh
+
+echo "=== Envoy Proxy 验证测试 ==="
+
+# 1. 检查管理接口
+echo "1. 检查管理接口:"
+curl -s http://localhost:9901/server_info | grep -q "live" && echo "✓ 管理接口正常" || echo "✗ 管理接口异常"
+
+# 2. 检查TCP代理端口
+echo "2. 检查TCP代理端口:"
+nc -zv localhost 10000 2>&1 | grep -q "succeeded" && echo "✓ TCP代理端口正常" || echo "✗ TCP代理端口异常"
+
+# 3. 检查UDP代理端口
+echo "3. 检查UDP代理端口:"
+nc -zuv localhost 10001 2>&1 | grep -q "succeeded" && echo "✓ UDP代理端口正常" || echo "✗ UDP代理端口异常"
+
+# 4. 检查FTP端口
+echo "4. 检查FTP控制端口:"
+nc -zv localhost 21 2>&1 | grep -q "succeeded" && echo "✓ FTP控制端口正常" || echo "✗ FTP控制端口异常"
+
+# 5. 检查H.323端口
+echo "5. 检查H.323信令端口:"
+nc -zv localhost 1720 2>&1 | grep -q "succeeded" && echo "✓ H.323信令端口正常" || echo "✗ H.323信令端口异常"
+
+# 6. 检查TFTP端口
+echo "6. 检查TFTP端口:"
+nc -zuv localhost 69 2>&1 | grep -q "succeeded" && echo "✓ TFTP端口正常" || echo "✗ TFTP端口异常"
+
+echo "=== 测试完成 ==="
+```
+
+## 10. 验证流量转发
+
+在后端服务器上检查是否收到流量：
+
+```bash
+# 在后端TCP服务器上监听8080端口
+nc -l 8080
+
+# 在另一终端向Envoy发送数据
+echo "Test data" | nc localhost 10000
+
+# 检查后端服务器是否收到数据
+```
+
+## 11. 使用Envoy统计信息
+
+```bash
+# 查看特定集群的统计信息
+curl http://localhost:9901/stats | grep tcp_cluster
+
+# 查看监听器统计信息
+curl http://localhost:9901/stats | grep tcp_listener
+
+# 实时监控统计信息
+watch -n 1 'curl -s http://localhost:9901/stats | grep -E "(tcp|udp|ftp|h323|tftp)"'
+```
+
+通过这些方法，您可以全面验证Envoy代理是否正常工作，并确认各种协议的流量是否被正确转发到目标服务器。
+
+
+
+ 检查所有监听端口
+# 验证所有协议端口是否都在监听
+netstat -tlnp | grep envoy
+# 或
+ss -tlnp | grep envoy
