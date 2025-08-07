@@ -1,0 +1,60 @@
+
+一、bazel安装
+如果你不想用 Bazelisk，也可以直接安装指定版本。
+下载：
+curl -LO https://github.com/bazelbuild/bazel/releases/download/7.6.0/bazel-7.6.0-linux-x86_64
+chmod +x bazel-7.6.0-linux-x86_64
+sudo mv bazel-7.6.0-linux-x86_64 /usr/local/bin/bazel
+
+验证：
+bazel version  # 确认为 7.6.0
+
+
+二、gcc更新
+# 下载 GCC 源码
+wget https://ftp.gnu.org/gnu/gcc/gcc-11.3.0/gcc-11.3.0.tar.gz
+tar -xzf gcc-11.3.0.tar.gz
+cd gcc-11.3.0
+# 下载必要依赖
+./contrib/download_prerequisites
+# 创建构建目录
+mkdir build
+cd build
+# 配置编译选项，指定安装目录
+../configure --enable-languages=c,c++ --disable-multilib --prefix=/opt/gcc-11.3.0
+# 编译（使用所有可用核心加速编译）
+make -j$(nproc)
+# 安装到指定目录
+make install
+
+
+导入环境变量
+# 临时将新编译的 GCC 加入 PATH
+export PATH=/opt/gcc-11.3.0/bin:$PATH
+export LD_LIBRARY_PATH=/opt/gcc-11.3.0/lib64:/opt/gcc-11.3.0/lib:$LD_LIBRARY_PATH
+
+# 验证版本
+gcc --version
+g++ --version
+
+
+
+
+三、envoy编译安装
+# 已安装 Bazel 7.6.0（见上文）
+git clone https://github.com/envoyproxy/envoy.git
+cd envoy
+git checkout v1.34.3
+
+# 清理旧依赖，防止出错
+bazel clean --expunge
+
+# 构建 Envoy 可执行文件
+bazel build //source/exe:envoy-static
+
+# 编译成功后可执行文件在这里：
+bazel-bin/source/exe/envoy-static
+
+
+./bazel-bin/source/exe/envoy-static -c envoy.yaml
+
