@@ -51,10 +51,27 @@ bazel clean --expunge
 
 # 构建 Envoy 可执行文件
 bazel build //source/exe:envoy-static
+bazel build //source/exe:envoy-static --define=ENVOY_EXPERIMENTAL_FEATURE=1
 
 # 编译成功后可执行文件在这里：
 bazel-bin/source/exe/envoy-static
 
 
-./bazel-bin/source/exe/envoy-static -c envoy.yaml
+./bazel-bin/source/exe/envoy-static -c  envoy.yaml
+./bazel-bin/source/exe/envoy-static -c  multi_protocol_proxy_tcp_udp_ftp_tftp.yaml
+
+
+./bazel-bin/source/exe/envoy-static --help | grep router
+./bazel-bin/source/exe/envoy-static --version | grep extensions
+
+
+1、http代理
+./bazel-bin/source/exe/envoy-static --mode validate -c http.yaml
+curl -v http://localhost:10000/
+
+2、tcp代理
+./bazel-bin/source/exe/envoy-static -c  tcp.yaml
+nc -l 9001  # 启动一个 TCP echo server
+nc localhost 9000
+
 

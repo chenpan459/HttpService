@@ -1,0 +1,33 @@
+static_resources:
+  listeners:
+  - name: tftp_listener
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 69
+    udp_listener_config:
+      udp_listener_name: envoy.quic_listener  # 或 "envoy.udp_listener"（视版本而定）
+    filter_chains:
+    - filters:
+      - name: envoy.filters.udp_listener.udp_proxy
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
+          stat_prefix: tftp_udp_proxy
+          cluster: tftp_backend
+
+
+  clusters:
+  - name: tftp_backend
+    connect_timeout: 1s
+    type: STATIC
+    lb_policy: ROUND_ROBIN
+    load_assignment:
+      cluster_name: tftp_backend
+      endpoints:
+      - lb_endpoints:
+        - endpoint:
+            address:
+              socket_address:
+                address: 192.168.1.200
+                port_value: 69
+        

@@ -2,7 +2,7 @@
 
 ## 配置文件整体结构
 
-```yaml
+
 # multi_protocol_proxy.yaml
 admin:
   # 管理接口配置
@@ -11,27 +11,25 @@ static_resources:
     # 多个监听器配置
   clusters:
     # 多个集群配置
-```
+
+
+
 
 ## 1. 管理接口配置 (admin)
-
-```yaml
 admin:
   access_log_path: /tmp/admin_access.log
   address:
     socket_address: { address: 0.0.0.0, port_value: 9901 }
-```
 
 - `access_log_path`: 管理接口的访问日志路径
 - `address`: 管理接口监听地址，监听在所有网络接口的9901端口
 - 可通过 http://localhost:9901 访问管理界面，查看统计信息、日志等
 
+
 ## 2. 静态资源配置 (static_resources)
-
 ### 2.1 监听器配置 (listeners)
-
 #### TCP代理监听器
-```yaml
+
 - name: tcp_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 10000 }
@@ -42,14 +40,13 @@ admin:
         "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
         stat_prefix: tcp_proxy
         cluster: tcp_cluster
-```
+
 - 监听在10000端口的TCP连接
 - 使用 `envoy.filters.network.tcp_proxy` 过滤器处理TCP流量
 - 将流量转发到 `tcp_cluster` 集群
 - `stat_prefix` 用于标识统计信息的前缀
 
 #### UDP代理监听器
-```yaml
 - name: udp_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 10001, protocol: UDP }
@@ -62,14 +59,13 @@ admin:
       "@type": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
       stat_prefix: udp_proxy
       cluster: udp_cluster
-```
+
 - 监听在10001端口的UDP数据包
 - `max_rx_datagram_size`: 设置接收UDP数据包的最大大小为9000字节
 - 使用 `envoy.filters.udp_listener.udp_proxy` 处理UDP流量
 - 转发到 `udp_cluster` 集群
 
 #### FTP控制连接监听器
-```yaml
 - name: ftp_control_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 21 }
@@ -80,12 +76,11 @@ admin:
         "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
         stat_prefix: ftp_control
         cluster: ftp_control_cluster
-```
+
 - 监听FTP控制连接（端口21）
 - 使用TCP代理转发控制命令
 
 #### FTP数据连接监听器
-```yaml
 - name: ftp_data_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 20 }
@@ -96,12 +91,11 @@ admin:
         "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
         stat_prefix: ftp_data
         cluster: ftp_data_cluster
-```
+
 - 监听FTP数据连接（端口20）
 - 处理FTP文件传输数据
 
 #### H.323信令监听器
-```yaml
 - name: h323_signaling_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 1720 }
@@ -112,12 +106,11 @@ admin:
         "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
         stat_prefix: h323_signaling
         cluster: h323_signaling_cluster
-```
+
 - 监听H.323视频会议信令（端口1720）
 - 转发H.323信令到后端服务器
 
 #### TFTP监听器
-```yaml
 - name: tftp_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 69, protocol: UDP }
@@ -130,12 +123,11 @@ admin:
       "@type": type.googleapis.com/envoy.extensions.filters.udp.udp_proxy.v3.UdpProxyConfig
       stat_prefix: tftp_proxy
       cluster: tftp_cluster
-```
+
 - 监听TFTP服务（端口69 UDP）
 - 设置数据包最大大小为512字节（TFTP标准）
 
 #### HTTP/3监听器
-```yaml
 - name: http3_listener
   address:
     socket_address: { address: 0.0.0.0, port_value: 443 }
@@ -173,7 +165,7 @@ admin:
         - name: envoy.filters.http.router
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
-```
+
 - 监听HTTPS/H3连接（端口443）
 - 使用TLS检查器识别HTTP/3流量
 - 通过QUIC协议处理HTTP/3流量
@@ -181,10 +173,10 @@ admin:
 - 使用HTTP连接管理器处理HTTP请求
 - 路由所有请求到 `http3_cluster` 集群
 
-### 2.2 集群配置 (clusters)
 
+
+### 2.2 集群配置 (clusters)
 #### TCP集群
-```yaml
 - name: tcp_cluster
   connect_timeout: 0.25s
   type: STATIC
@@ -196,7 +188,7 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.100, port_value: 8080 }
-```
+
 - 名称为 `tcp_cluster`
 - 连接超时时间为0.25秒
 - 使用静态服务发现
@@ -204,7 +196,6 @@ admin:
 - 后端服务器地址为 192.168.1.100:8080
 
 #### UDP集群
-```yaml
 - name: udp_cluster
   connect_timeout: 0.25s
   type: STATIC
@@ -216,12 +207,11 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.101, port_value: 53, protocol: UDP }
-```
+
 - 使用Maglev哈希负载均衡算法（适合UDP）
 - 后端服务器为 192.168.1.101:53 (DNS服务器)
 
 #### FTP控制集群
-```yaml
 - name: ftp_control_cluster
   connect_timeout: 1s
   type: STATIC
@@ -233,12 +223,11 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.102, port_value: 21 }
-```
+
 - 连接超时时间较长（1秒）
 - 后端FTP服务器控制端口 192.168.1.102:21
 
 #### FTP数据集群
-```yaml
 - name: ftp_data_cluster
   connect_timeout: 1s
   type: STATIC
@@ -250,11 +239,10 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.102, port_value: 20 }
-```
+
 - 后端FTP服务器数据端口 192.168.1.102:20
 
 #### H.323信令集群
-```yaml
 - name: h323_signaling_cluster
   connect_timeout: 1s
   type: STATIC
@@ -266,11 +254,10 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.103, port_value: 1720 }
-```
+
 - 后端H.323服务器 192.168.1.103:1720
 
 #### TFTP集群
-```yaml
 - name: tftp_cluster
   connect_timeout: 0.25s
   type: STATIC
@@ -282,11 +269,10 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.104, port_value: 69, protocol: UDP }
-```
+
 - 后端TFTP服务器 192.168.1.104:69
 
 #### HTTP/3集群
-```yaml
 - name: http3_cluster
   connect_timeout: 0.25s
   type: STATIC
@@ -303,12 +289,12 @@ admin:
       - endpoint:
           address:
             socket_address: { address: 192.168.1.105, port_value: 443 }
-```
+
 - 启用HTTP/3上游协议选项
 - 后端HTTPS服务器 192.168.1.105:443
 
-## 关键特性说明
 
+## 关键特性说明
 1. **多协议支持**：一个Envoy实例同时处理TCP、UDP、FTP、H.323、TFTP和HTTP/3等多种协议
 2. **灵活的负载均衡**：针对不同协议使用合适的负载均衡算法（ROUND_ROBIN、MAGLEV）
 3. **端口映射**：将不同协议的流量转发到对应的后端服务
