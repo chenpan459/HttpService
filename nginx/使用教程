@@ -19,6 +19,18 @@ cd nginx-1.24.0
 make && make install
 
 
+
+
+./auto/configure --prefix=/usr/local/nginx \
+            --with-stream \
+            --add-dynamic-module=../nginx-upload-module \
+            --add-dynamic-module=../ngx-ftp-module \
+            --with-http_stub_status_module \
+            --with-http_ssl_module
+   
+nginx -t
+nginx -s reload
+
 三、配置方法nginx.conf
 3.1 配置方法
 http {

@@ -29,7 +29,6 @@
 #include <ngx_config.h>
 #include <ngx_core.h>
 #include <ngx_stream.h>
-
 #define NGX_FTP_PROXY_MIN_DATA_PORT 20000
 #define NGX_FTP_PROXY_MAX_DATA_PORT 21000
 #define NGX_FTP_PROXY_SESSION_TTL   60
@@ -79,17 +78,20 @@ typedef struct {
     ngx_uint_t              session_count;
 } ngx_stream_ftp_proxy_main_conf_t;
 
+/* 全局主配置指针 */
+static ngx_stream_ftp_proxy_main_conf_t *ngx_stream_ftp_proxy_main_conf = NULL;
+
 /* prototypes */
 static void *ngx_stream_ftp_proxy_create_srv_conf(ngx_conf_t *cf);
 static char *ngx_stream_ftp_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child);
 static char *ngx_stream_ftp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 static ngx_int_t ngx_stream_ftp_proxy_preread_handler(ngx_stream_session_t *s);
 static ngx_int_t ngx_stream_ftp_proxy_init(ngx_conf_t *cf);
-static ngx_int_t ngx_stream_ftp_proxy_init_main_conf(ngx_cycle_t *cycle);
 static void ngx_stream_ftp_proxy_cleanup_handler(ngx_event_t *ev);
 static ngx_ftp_data_listener_t *ngx_ftp_allocate_data_listener(ngx_stream_ftp_proxy_main_conf_t *mcf);
 static void ngx_ftp_free_data_listener(ngx_stream_ftp_proxy_main_conf_t *mcf, ngx_ftp_data_listener_t *dl);
 static void ngx_ftp_data_accept_handler(ngx_event_t *ev);
+static ngx_int_t ngx_stream_ftp_proxy_init_cycle(ngx_cycle_t *cycle);
 
 /* directives */
 static ngx_command_t ngx_stream_ftp_proxy_commands[] = {
@@ -121,15 +123,34 @@ static ngx_stream_module_t ngx_stream_ftp_proxy_module_ctx = {
     ngx_stream_ftp_proxy_merge_srv_conf
 };
 
+// ngx_module_t ngx_stream_ftp_proxy_module = {
+//     NGX_MODULE_V1,
+//     &ngx_stream_ftp_proxy_module_ctx,
+//     ngx_stream_ftp_proxy_commands,
+//     NGX_STREAM_MODULE,
+//     NULL,                                   /* init master */
+//     NULL,                                   /* init module */
+//     NULL,                                   /* init process */
+//     NULL,                                   /* init thread */
+//     NULL,                                   /* exit thread */
+//     NULL,                                   /* exit process */
+//     ngx_stream_ftp_proxy_init_cycle,        /* exit master */  
+//     NGX_MODULE_V1_PADDING
+// };
 ngx_module_t ngx_stream_ftp_proxy_module = {
     NGX_MODULE_V1,
     &ngx_stream_ftp_proxy_module_ctx,
     ngx_stream_ftp_proxy_commands,
     NGX_STREAM_MODULE,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+    NULL,                                   /* init master */
+    ngx_stream_ftp_proxy_init_cycle,        /* init module */
+    NULL,                                   /* init process */
+    NULL,                                   /* init thread */
+    NULL,                                   /* exit thread */
+    NULL,                                   /* exit process */
+    NULL,                                   /* exit master */
     NGX_MODULE_V1_PADDING
 };
-
 /* create server conf */
 static void *
 ngx_stream_ftp_proxy_create_srv_conf(ngx_conf_t *cf)
@@ -191,7 +212,7 @@ parse_port_cmd(u_char *data, ssize_t len, struct sockaddr_in *addr)
 {
     u_char *p = data;
     /* find start of numbers */
-    while (p < data + len && *p != ' ' && *p != '	') p++;
+    while (p < data + len && *p != ' ' && *p != '\t') p++;
     if (p >= data + len) return NGX_ERROR;
     p++; /* skip space */
 
@@ -201,13 +222,11 @@ parse_port_cmd(u_char *data, ssize_t len, struct sockaddr_in *addr)
     ngx_memcpy(buf, p, copy_len);
 
     ngx_uint_t nums[6];
-    char *tok = strtok((char*)buf, ",
-");
+    char *tok = strtok((char*)buf, ",");
     int i=0;
     while (tok && i < 6) {
         nums[i++] = (ngx_uint_t) atoi(tok);
-        tok = strtok(NULL, ",
-");
+        tok = strtok(NULL, ",");
     }
     if (i != 6) return NGX_ERROR;
 
@@ -231,13 +250,11 @@ parse_227_reply(u_char *data, ssize_t len, struct sockaddr_in *addr)
     ngx_memcpy(buf, p, copy_len);
 
     ngx_uint_t nums[6];
-    char *tok = strtok((char*)buf, ",)
-");
+    char *tok = strtok((char*)buf, ",)");
     int i=0;
     while (tok && i < 6) {
         nums[i++] = (ngx_uint_t) atoi(tok);
-        tok = strtok(NULL, ",)
-");
+        tok = strtok(NULL, ",)");
     }
     if (i != 6) return NGX_ERROR;
 
@@ -252,7 +269,7 @@ static ngx_int_t
 ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
 {
     ngx_stream_core_main_conf_t   *cmcf;
-    ngx_stream_ftp_proxy_main_conf_t *mcf;
+    ngx_cycle_t                   *cycle;
 
     cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
     ngx_array_t *phases = &cmcf->phases[NGX_STREAM_PREREAD_PHASE].handlers;
@@ -261,9 +278,52 @@ ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
     if (h == NULL) return NGX_ERROR;
     *h = ngx_stream_ftp_proxy_preread_handler;
 
-    /* create main conf (module-global) in cycle init later */
+    /* 初始化主配置 */
+    cycle = cf->cycle;
+    if (ngx_stream_ftp_proxy_main_conf == NULL) {
+        ngx_stream_ftp_proxy_main_conf = ngx_pcalloc(cycle->pool, 
+                                                     sizeof(ngx_stream_ftp_proxy_main_conf_t));
+        if (ngx_stream_ftp_proxy_main_conf == NULL) {
+            return NGX_ERROR;
+        }
+
+        /* 初始化主配置结构 */
+        ngx_rbtree_init(&ngx_stream_ftp_proxy_main_conf->sessions_rbtree, 
+                        &ngx_stream_ftp_proxy_main_conf->sessions_sentinel, 
+                        ngx_str_rbtree_insert_value);
+        ngx_queue_init(&ngx_stream_ftp_proxy_main_conf->free_data_ports);
+
+        ngx_uint_t port_min = NGX_FTP_PROXY_MIN_DATA_PORT;
+        ngx_uint_t port_max = NGX_FTP_PROXY_MAX_DATA_PORT;
+        ngx_uint_t nports = port_max - port_min + 1;
+
+        ngx_stream_ftp_proxy_main_conf->data_listeners_n = nports;
+        ngx_stream_ftp_proxy_main_conf->data_listeners_pool = 
+            ngx_pcalloc(cycle->pool, sizeof(ngx_ftp_data_listener_t) * nports);
+        if (ngx_stream_ftp_proxy_main_conf->data_listeners_pool == NULL) {
+            return NGX_ERROR;
+        }
+
+        ngx_uint_t i;
+        for (i = 0; i < nports; i++) {
+            ngx_ftp_data_listener_t *dl = &ngx_stream_ftp_proxy_main_conf->data_listeners_pool[i];
+            dl->in_use = 0;
+            dl->fd = (ngx_socket_t) -1;
+            dl->port = (ngx_uint_t)(port_min + i);
+            ngx_queue_insert_tail(&ngx_stream_ftp_proxy_main_conf->free_data_ports, &dl->queue);
+        }
+
+        /* schedule cleanup event */
+        ngx_stream_ftp_proxy_main_conf->cleanup_ev.handler = ngx_stream_ftp_proxy_cleanup_handler;
+        ngx_stream_ftp_proxy_main_conf->cleanup_ev.log = cycle->log;
+        ngx_stream_ftp_proxy_main_conf->cleanup_ev.data = ngx_stream_ftp_proxy_main_conf;
+        ngx_add_timer(&ngx_stream_ftp_proxy_main_conf->cleanup_ev, 1000); /* 1s periodic cleanup */
+    }
+
     return NGX_OK;
 }
+
+
 
 /* initialize module-wide structures in cycle init (post configure) */
 static ngx_int_t
@@ -300,7 +360,7 @@ ngx_stream_ftp_proxy_init_main_conf(ngx_cycle_t *cycle)
     ngx_add_timer(&mcf->cleanup_ev, 1000); /* 1s periodic cleanup */
 
     /* store mcf in cycle->conf_ctx? For skeleton, we attach to cycle->pool user data */
-    ngx_set_cycle_user_data(cycle, mcf);
+    // ngx_set_cycle_user_data(cycle, mcf);
 
     return NGX_OK;
 }
@@ -407,11 +467,13 @@ ngx_ftp_data_accept_handler(ngx_event_t *ev)
 static void
 ngx_stream_ftp_proxy_cleanup_handler(ngx_event_t *ev)
 {
-    ngx_stream_ftp_proxy_main_conf_t *mcf = ev->data;
+    // ngx_stream_ftp_proxy_main_conf_t *mcf = ev->data;
     /* TODO: iterate session rbtree / queues, drop stale sessions, free data listeners */
     ngx_add_timer(ev, 1000);
 }
 
+/* preread handler: inspect first bytes of control channel and detect PORT/227 */
+/* preread handler: inspect first bytes of control channel and detect PORT/227 */
 /* preread handler: inspect first bytes of control channel and detect PORT/227 */
 static ngx_int_t
 ngx_stream_ftp_proxy_preread_handler(ngx_stream_session_t *s)
@@ -438,8 +500,8 @@ ngx_stream_ftp_proxy_preread_handler(ngx_stream_session_t *s)
                           (addr.sin_addr.s_addr)&0xff,
                           ntohs(addr.sin_port));
 
-            /* find module main conf */
-            ngx_stream_ftp_proxy_main_conf_t *mcf = ngx_get_cycle_user_data(ngx_cycle);
+            /* 使用全局主配置 */
+            ngx_stream_ftp_proxy_main_conf_t *mcf = ngx_stream_ftp_proxy_main_conf;
             if (mcf) {
                 ngx_ftp_data_listener_t *dl = ngx_ftp_allocate_data_listener(mcf);
                 if (dl) {
@@ -472,18 +534,39 @@ ngx_stream_ftp_proxy_preread_handler(ngx_stream_session_t *s)
                           ntohs(addr.sin_port));
 
             /* Similar: allocate local port, create listener, rewrite 227 to proxy IP:port */
+            /* 使用全局主配置 */
+            ngx_stream_ftp_proxy_main_conf_t *mcf = ngx_stream_ftp_proxy_main_conf;
+            if (mcf) {
+                ngx_ftp_data_listener_t *dl = ngx_ftp_allocate_data_listener(mcf);
+                if (dl) {
+                    if (ngx_ftp_create_listener(dl, c->log) == NGX_OK) {
+                        /* TODO: rewrite 227 reply to point to dl->port */
+                    } else {
+                        ngx_ftp_free_data_listener(mcf, dl);
+                    }
+                } else {
+                    ngx_log_error(NGX_LOG_WARN, c->log, 0, "[ftp_proxy] no free data port");
+                }
+            }
         }
     }
 
     return NGX_OK;
 }
 
+
 /* Module cycle init hook: register main-conf initializer */
-static ngx_int_t
-ngx_stream_ftp_proxy_init_cycle(ngx_cycle_t *cycle)
+static ngx_int_t ngx_stream_ftp_proxy_init_cycle(ngx_cycle_t *cycle)
 {
     return ngx_stream_ftp_proxy_init_main_conf(cycle);
 }
+
+
+// static void
+// ngx_stream_ftp_proxy_init_cycle(ngx_cycle_t *cycle)
+// {
+//     ngx_stream_ftp_proxy_init_main_conf(cycle);
+// }
 
 /* NOTE: hooking into cycle init requires adding callbacks to init cycle list
  * which is out of scope of this skeleton. You can call
