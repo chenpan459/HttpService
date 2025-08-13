@@ -1,0 +1,37 @@
+
+1、电商平台动态添加Brotli压缩模块
+在某电商平台全球化的项目中，我们需要为海外用户提供更高效的内容压缩。Brotli压缩算法相比传统的gzip能带来15-25%的额外压缩率，
+但该模块并未内置在Nginx中
+https://github.com/google/ngx_brotli
+
+
+# 下载对应版本的Nginx源码
+wget http://nginx.org/download/nginx-1.21.6.tar.gz
+tar zxvf nginx-1.21.6.tar.gz
+
+# 下载Brotli模块源码
+git clone https://github.com/google/ngx_brotli.git
+cd ngx_brotli
+git submodule update --init
+
+# 编译动态模块
+cd ../nginx-1.21.6
+./configure --with-compat --add-dynamic-module=../ngx_brotli
+make modules
+
+
+
+
+# 将生成的.so文件复制到模块目录
+cp objs/ngx_http_brotli_filter_module.so /usr/lib/nginx/modules/
+cp objs/ngx_http_brotli_static_module.so /usr/lib/nginx/modules/
+
+配置加载：
+load_module modules/ngx_http_brotli_filter_module.so;
+load_module modules/ngx_http_brotli_static_module.so;
+
+http {
+    brotli on;
+    brotli_comp_level 6;
+    brotli_types text/plain text/css application/json application/javascript;
+}

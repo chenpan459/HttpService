@@ -123,21 +123,8 @@ static ngx_stream_module_t ngx_stream_ftp_proxy_module_ctx = {
     ngx_stream_ftp_proxy_merge_srv_conf
 };
 
-// ngx_module_t ngx_stream_ftp_proxy_module = {
-//     NGX_MODULE_V1,
-//     &ngx_stream_ftp_proxy_module_ctx,
-//     ngx_stream_ftp_proxy_commands,
-//     NGX_STREAM_MODULE,
-//     NULL,                                   /* init master */
-//     NULL,                                   /* init module */
-//     NULL,                                   /* init process */
-//     NULL,                                   /* init thread */
-//     NULL,                                   /* exit thread */
-//     NULL,                                   /* exit process */
-//     ngx_stream_ftp_proxy_init_cycle,        /* exit master */  
-//     NGX_MODULE_V1_PADDING
-// };
-ngx_module_t ngx_stream_ftp_proxy_module = {
+
+ngx_module_t ngx_ftp_proxy_module = {
     NGX_MODULE_V1,
     &ngx_stream_ftp_proxy_module_ctx,
     ngx_stream_ftp_proxy_commands,
