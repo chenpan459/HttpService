@@ -2,6 +2,7 @@
 #include <ngx_core.h>
 #include <ngx_stream.h>
 
+
 // server 配置结构
 typedef struct {
     ngx_url_t                 *upstream;
@@ -27,6 +28,9 @@ ngx_stream_ftp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     u->default_port = 21; // FTP 控制端口
     u->no_resolve = 0;
 
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ftp_proxy_pass backend: %V", &value[1]);    
+    // ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ftp_proxy_pass set to: %V", &psc->backend);
+
     if (ngx_parse_url(cf->pool, u) != NGX_OK) {
         if (u->err) {
             ngx_conf_log_error(NGX_LOG_EMERG, cf, 0,
@@ -36,7 +40,7 @@ ngx_stream_ftp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     }
 
     pscf->upstream = u;
-
+ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ngx_stream_ftp_proxy_pass end");  
     return NGX_CONF_OK;
 }
 
@@ -60,7 +64,8 @@ ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
 {
     ngx_stream_core_main_conf_t *cmcf;
     ngx_stream_handler_pt       *h;
-
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ngx_stream_ftp_proxy_init start");    
+    
     cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
 
     h = ngx_array_push(&cmcf->phases[NGX_STREAM_PREREAD_PHASE].handlers);
@@ -69,7 +74,8 @@ ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
     }
 
     *h = ngx_stream_ftp_proxy_handler;
-
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ngx_stream_ftp_proxy_init end");    
+    
     return NGX_OK;
 }
 
@@ -79,12 +85,20 @@ static void *
 ngx_stream_ftp_proxy_create_srv_conf(ngx_conf_t *cf)
 {
     ngx_stream_ftp_proxy_srv_conf_t *conf;
-
+ ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ngx_stream_ftp_proxy_create_srv_conf start");    
+    
     conf = ngx_pcalloc(cf->pool, sizeof(ngx_stream_ftp_proxy_srv_conf_t));
     if (conf == NULL) {
         return NULL;
     }
 
+    // if (conf->handler == NULL) {
+    //    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "conf->handler == NULL");                   
+    //     // return NGX_CONF_ERROR;
+    // }
+
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ngx_stream_ftp_proxy_create_srv_conf end");    
+    
     return conf;
 }
 
@@ -105,6 +119,8 @@ ngx_stream_ftp_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 {
     // ngx_stream_ftp_proxy_srv_conf_t *conf = child;
     ngx_stream_core_srv_conf_t      *cscf;
+    ngx_log_error(NGX_LOG_INFO, cf->log, 0,
+                  "ngx_stream_ftp_proxy_merge_srv_conf");
 
     cscf = ngx_stream_conf_get_module_srv_conf(cf, ngx_stream_core_module);
 
@@ -118,13 +134,15 @@ ngx_stream_ftp_proxy_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
 // 模块指令
 static ngx_command_t ngx_stream_ftp_proxy_commands[] = {
     {
-        ngx_string("ftp_proxy_pass"),
-        NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
+        ngx_string("ftp_proxy_pass"),        
+        NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,// NGX_STREAM_SRV_CONF|NGX_CONF_TAKE1,
         ngx_stream_ftp_proxy_pass,
         NGX_STREAM_SRV_CONF_OFFSET,
         0,
         NULL
     },
+
+     
     ngx_null_command
 };
 

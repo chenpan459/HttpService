@@ -142,7 +142,6 @@ static ngx_command_t  ngx_stream_proxy_commands[] = {
       NGX_STREAM_SRV_CONF_OFFSET,
       0,
       NULL },
-
     { ngx_string("proxy_bind"),
       NGX_STREAM_MAIN_CONF|NGX_STREAM_SRV_CONF|NGX_CONF_TAKE12,
       ngx_stream_proxy_bind,
