@@ -453,7 +453,7 @@ ngx_stream_core_merge_srv_conf(ngx_conf_t *cf, void *parent, void *child)
     if (conf->handler == NULL) {
         ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
                       "no handler for server in %s:%ui",
-                      conf->file_name, conf->line);
+                      conf->file_name, conf->line);                      
         return NGX_CONF_ERROR;
     }
 

@@ -175,9 +175,13 @@ ngx_stream_ftp_proxy_pass(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
 {
     ngx_stream_ftp_proxy_srv_conf_t *psc = conf;
     ngx_str_t *value;
-
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ftp_proxy_pass directive is being processed");
+    
     value = cf->args->elts;
     psc->backend = value[1];
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ftp_proxy_pass backend: %V", &value[1]);
+    
+    ngx_conf_log_error(NGX_LOG_NOTICE, cf, 0, "ftp_proxy_pass set to: %V", &psc->backend);
 
     return NGX_CONF_OK;
 }
@@ -258,11 +262,16 @@ ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
     ngx_stream_core_main_conf_t   *cmcf;
     ngx_cycle_t                   *cycle;
 
+ngx_log_error(NGX_LOG_NOTICE, cf->log, 0, "Initializing FTP proxy module");
+
     cmcf = ngx_stream_conf_get_module_main_conf(cf, ngx_stream_core_module);
     ngx_array_t *phases = &cmcf->phases[NGX_STREAM_PREREAD_PHASE].handlers;
 
     ngx_stream_handler_pt *h = ngx_array_push(phases);
-    if (h == NULL) return NGX_ERROR;
+    if (h == NULL){
+         ngx_log_error(NGX_LOG_ERR, cf->log, 0, "Failed to get stream core main conf");
+        return NGX_ERROR;
+    } 
     *h = ngx_stream_ftp_proxy_preread_handler;
 
     /* 初始化主配置 */
@@ -306,6 +315,7 @@ ngx_stream_ftp_proxy_init(ngx_conf_t *cf)
         ngx_stream_ftp_proxy_main_conf->cleanup_ev.data = ngx_stream_ftp_proxy_main_conf;
         ngx_add_timer(&ngx_stream_ftp_proxy_main_conf->cleanup_ev, 1000); /* 1s periodic cleanup */
     }
+ngx_log_error(NGX_LOG_NOTICE, cf->log, 0, "Initializing FTP proxy module succ.");
 
     return NGX_OK;
 }
@@ -341,10 +351,11 @@ ngx_stream_ftp_proxy_init_main_conf(ngx_cycle_t *cycle)
     }
 
     /* schedule cleanup event */
+    ngx_memzero(&mcf->cleanup_ev, sizeof(ngx_event_t));
     mcf->cleanup_ev.handler = ngx_stream_ftp_proxy_cleanup_handler;
     mcf->cleanup_ev.log = cycle->log;
     mcf->cleanup_ev.data = mcf;
-    ngx_add_timer(&mcf->cleanup_ev, 1000); /* 1s periodic cleanup */
+    // ngx_add_timer(&mcf->cleanup_ev, 1000); /* 1s periodic cleanup */
 
     /* store mcf in cycle->conf_ctx? For skeleton, we attach to cycle->pool user data */
     // ngx_set_cycle_user_data(cycle, mcf);
@@ -460,14 +471,16 @@ ngx_stream_ftp_proxy_cleanup_handler(ngx_event_t *ev)
 }
 
 /* preread handler: inspect first bytes of control channel and detect PORT/227 */
-/* preread handler: inspect first bytes of control channel and detect PORT/227 */
-/* preread handler: inspect first bytes of control channel and detect PORT/227 */
 static ngx_int_t
 ngx_stream_ftp_proxy_preread_handler(ngx_stream_session_t *s)
 {
+   
     ngx_connection_t *c = s->connection;
     ssize_t n;
     u_char buf[2048];
+    ngx_log_error(NGX_LOG_NOTICE, c->log, 0, "ftp proxy_preread_handler");
+
+    // if(1){  return NGX_OK;}
 
     n = recv(c->fd, buf, sizeof(buf), MSG_PEEK);
     if (n == -1) {
