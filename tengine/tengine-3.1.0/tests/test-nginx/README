@@ -1,0 +1,7 @@
+
+Just test the static modules:
+
+PATH=/path/to/nginx/sbin:$PATH prove -r cases/footer.t
+PATH=/path/to/nginx/sbin:$PATH prove -r cases/syslog.t
+PATH=/path/to/nginx/sbin:$PATH prove -r cases/user_agent.t
+TEST_NGINX_SLEEP_BEFORE=6 TEST_NGINX_USE_HUP=1 PATH=/path/to/nginx/sbin:$PATH prove -r cases/ngx_http_upstream_check_module
