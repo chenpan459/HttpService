@@ -1,0 +1,116 @@
+
+
+
+
+1、libpcrecpp安装编译
+./configure --host=mips-linux-gnu --target=mips-linux-gnu CC=/opt/mips-gcc720-glibc229/bin/mips-linux-gnu-gcc AD=/opt/mips-gcc720-glibc229/bin/mips-linux-gnu-as LD=/opt/mips-gcc720-glibc229/bin/mips-linux-gnu-ld AR=/opt/mips-gcc720-glibc229/bin/mips-linux-gnu-ar CXX=/opt/mips-gcc720-glibc229/bin/mips-linux-gnu-g++ --prefix=/home/cp/work/nginx/mips_lib
+
+make 
+make  install
+
+
+2、zlib编译
+
+./configure --prefix=/home/cp/work/nginx/mips_lib
+
+修改makefile
+#CC=gcc
+CC=mips-linux-gnu-gcc
+
+
+CFLAGS=-O3 -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+#CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
+#CFLAGS=-g -DZLIB_DEBUG
+#CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
+#           -Wstrict-prototypes -Wmissing-prototypes
+
+SFLAGS=-O3 -fPIC -D_LARGEFILE64_SOURCE=1 -DHAVE_HIDDEN
+LDFLAGS=
+TEST_LIBS=-L. libz.a
+LDSHARED=mips-linux-gnu-gcc -shared -Wl,-soname,libz.so.1,--version-script,zlib.map
+
+
+
+
+3、编译ngiux
+//配置交叉编译环境
+export CC=mips-linux-gnu-gcc
+export CXX=mips-linux-gnu-g++
+export LD=mips-linux-gnu-ld
+export AR=mips-linux-gnu-ar
+export RANLIB=mips-linux-gnu-ranlib
+export STRIP=mips-linux-gnu-strip
+
+//执行构建指令
+./configure --prefix=/home/nginx/nginx_app --with-pcre=/home/nginx/pcre-8.45  --with-zlib=/home/nginx/zlib-1.3.1
+./configure --prefix=/usr/mmcdata/nginx --with-pcre=/home/nginx/pcre-8.45  --with-zlib=/home/nginx/zlib-1.3.1
+
+
+编译报错修改：
+
+1、makefile修改点
+CC =    mips-linux-gnu-gcc
+CFLAGS =
+CPP =
+LINK =  $(CC)
+
+
+
+
+2、修改PCRE编译的生成的makefile
+报错：configure: error: cannot run C compiled programs.
+If you meant to cross compile, use `--host'.
+See `config.log' for more details
+make[1]: *** [/home/nginx/pcre-8.45/Makefile] Error 77
+
+修改方法：
+/home/cp/work/nginx/pcre-8.45/Makefile: objs/Makefile
+        cd /home/cp/work/nginx/pcre-8.45 \
+        && if [ -f Makefile ]; then $(MAKE) distclean; fi \
+        && CC="$(CC)" CFLAGS="" \
+        ./configure --host=mips-linux-gnu --target=mips-linux-gnu
+
+3、报错：		
+checking host system type... Invalid configuration `mips-linux-gnu-gcc': OS `gcc' not recognized
+Invalid configuration `mips-linux-gnu-gcc': Kernel `gnu' not known to work with OS `gcc'.
+configure: error: /bin/bash ./config.sub mips-linux-gnu-gcc failed
+
+
+
+3、编译报错		
+src/event/ngx_event_udp.h:38:27: error: field 'pkt6' has incomplete type
+     struct in6_pktinfo    pkt6;
+                           ^~~~
+修改：nginx-1.24.0/objs/ngx_auto_config.h
+ipv6暂时屏蔽
+
+#ifndef NGX_HAVE_INET6
+#define NGX_HAVE_INET6  0
+#endif
+
+
+make 
+make install
+
+运行报错：添加对应创建的目录即可
+# ./sbin/nginx 
+nginx: [alert] could not open error log file: open() "/home/cp/work/nginx/app_nginx/logs/error.log" failed (2: Unknown error)
+2020/03/01 12:13:54 [emerg] 1593#0: open() "/home/cp/work/nginx/app_nginx/conf/nginx.conf" failed (2: Unknown error)
+
+
+
+
+
+
+
+
+./configure --prefix=/home/liufy/work/1300_new/event_mips  --host=mips-linux-gnu --target=mips-linux-gnu
+
+
+
+export NGINX_CONF_PATH=/usr/mmcdata/app_nginx/conf
+
+
+
+mkfs.ext2 /dev/mmcblk0p2
+
