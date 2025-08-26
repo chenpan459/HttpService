@@ -22,7 +22,7 @@ make && make install
 
 ./auto/configure --prefix=/usr/local/nginx \
             --with-stream \
-            --add-module=../nginx-upload-module \
+            --add-module=../nginx-module/nginx-upload-module \
             --with-http_stub_status_module \
             --with-http_ssl_module
 
